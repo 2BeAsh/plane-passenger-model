@@ -2,87 +2,75 @@ import numpy as np
 
 class SimplestPassengerModel():
     
-    def __init__(self, rows, prob_move, time_steps):
+    def __init__(self, rows, time_steps):
         self.rows = rows
-        self.prob_move = prob_move
         self.time_steps = time_steps
         
         
     def _initialize_passengers(self):
-        # Everyone starts in the left column (i.e. seated), with velocity 0.
-        self.x = np.arange(self.rows)
-        self.y = np.zeros(size=self.rows)
-        self.vx = np.zeros_like(self.y)
-        self.vy = np.zeros_like(self.y)
-        self.N_remaining_passengers = self.x.size
+        # All passengers start seated
+        self.passengers = np.zeros((self.rows, 2))
+        self.passengers[:, 0] = 1
 
-        
-    def _accelerate(self):
-        self.v = np.min(self.v + 1, 1)
+    def _initialize_history_arrays(self):
+        self.passengers_history = np.zeros((self.rows, 2, self.time_steps))  # Has to be 0s as may stop before all time steps have been taken.
 
-    def _blocking_passagers(self):
-        self.v = np.min(self.v, )
-    
-    def _random_stop(self):
-        pass
-    
-    def _leave_seat(self):
-        pass
-    
-    def _perform_move(self):
-        pass
-    
+    def _store_hist_values(self, time_index):
+        self.passengers_history[:, :, time_index] = self.passengers * 1
+
     
     def _update(self):
-        # # Standing passagers
-        # self._accelerate()
-        # self._blocking_passagers()
-        # self._random_stop()
-        # # Seated passengers
-        # self._leave_seat()
-        # # All
-        # self._perform_move()
-        
-        for i in range(self.N_remaining_passengers):
-            xi = self.x[i]
-            yi = self.y[i]
-            vxi = self.vx[i]
-            vyi = self.vy[i]
+        for _ in range(2 * self.rows):  # 2 columns
+            x = np.random.randint(0, self.rows)
+            y = np.random.randint(0, 2)
+            
+            if self.passengers[x, y] == 0:
+                continue
+            # Seated
+            if y == 0:
+                # If able to stand, do so. Otherwise do nothing
+                if self.passengers[x, y + 1] == 0:
+                    self.passengers[x, y] = 0
+                    self.passengers[x, y + 1] = 1
             
             # Standing
-            if yi == 1:
-                # Accelerate
-                vxi = np.min(vxi + 1, 1)
-                # Passenger blocking
-                vxi = np.min(vxi, self.x[i+1] - xi - 1)
-                # Random stop
-                if np.random.uniform() > 1 - self.prob_move: 
-                    vxi = np.max(vxi - 1, 0)
-                # Store the updated velocity
-                self.vx[i] = vxi            
-                
-            # Seated
-            else:  # yi == 0
-                vyi = 0
-                if np.count_nonzero(self.x == xi) == 2:  # If two passengers share x value they are next to each other
-                    vyi = 1
-                # Store the updated velocity
-                self.vy[i] = vyi
-            
-        # Perform move update
-        self.x += self.vx
-        self.y += self.vy
-        
-        self.vy[:] = 0  # Reset y speed (vx stays the same)
-        
+            else:  # y == 1
+                # If the chosen site is at the exit, remove the passenger
+                if x == self.rows - 1:
+                    self.passengers[x, y] = 0
+                else:
+                    if self.passengers[x + 1, y] == 0:
+                        self.passengers[x, y] = 0
+                        self.passengers[x + 1, y] = 1
         
     def _simulate(self):
-        pass
-    
-    
-    
-    
-    def _update_TASEP():
+        # Setup
+        self._initialize_passengers()
+        self._initialize_history_arrays()
+        self._store_hist_values(time_index=0)  # Store initial values
+        
+        # Continue until there are not more passengers or the max steps have been taken
+        N_remaining_passengers = np.sum(self.passengers)
+        time_steps_taken = 0
+        while (time_steps_taken < self.time_steps - 1) and N_remaining_passengers > 0:
+            # Perform passenger update
+            self._update()
+            # Update loop metrics
+            time_steps_taken += 1
+            N_remaining_passengers = np.sum(self.passengers)
+            # Store values
+            self._store_hist_values(time_steps_taken)
+        
+
+    def store_values(self):
+        # Simulate
+        self._simulate()
+        np.savez("./data/simple_model.npz", self.passengers_history)
+        print("Saved simple model")
         
         
-        return 
+if __name__ == "__main__":
+    rows = 30
+    time_steps = 10
+    Model = SimplestPassengerModel(rows, time_steps)
+    Model.store_values()
