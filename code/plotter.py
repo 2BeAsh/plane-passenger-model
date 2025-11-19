@@ -23,19 +23,17 @@ def animate_passengers(passenger_hist):
     anim.save(save_path + "passenger_hist.mp4")
     
 
-
-def animate_passengers_scatter(passenger_hist, save=True, step=1):
+def animate_passengers_scatter(passenger_hist, save=True, step=1, interval_ms=100):
     """
-    passenger_hist: array of shape (T, R, 2)
-        T = time steps
+    passenger_hist: array of shape (R, C, T)
         R = rows
-        col 0 = seat, col 1 = hallway
+        C = columns (any number of seat/hallway columns)
+        T = time steps
         values: 0 (empty), 1 (passenger)
 
     step: use every `step`-th frame to speed up saving (e.g. step=2 or 5)
     """
     R, C, T = passenger_hist.shape
-    assert C == 2, "Expected 2 columns: seat and hallway"
 
     # Use every `step`th time point for speed, frames are actual time indices
     frame_indices = np.arange(0, T, step)
@@ -43,19 +41,19 @@ def animate_passengers_scatter(passenger_hist, save=True, step=1):
     fig, ax = plt.subplots(figsize=(5, 8))
 
     # --- Background: all possible positions (static) ---
-    # x = 0 (seat), x = 1 (hallway) for each row
-    xs_all = np.array([0, 1] * R)
-    ys_all = np.repeat(np.arange(R), 2)
-    ax.scatter(xs_all, ys_all, s=12, alpha=0.2, marker="s")
+    # Full R x C grid
+    xs_all, ys_all = np.meshgrid(np.arange(C), np.arange(R))  # xs: 0..C-1, ys: 0..R-1
+    ax.scatter(xs_all.ravel(), ys_all.ravel(), s=12, alpha=0.2, marker="s")
 
     # --- Foreground: all passengers (single marker style) ---
     scat = ax.scatter([], [], s=40, color="black")
 
     # Axes formatting
-    ax.set_xlim(-0.5, 1.5)
+    ax.set_xlim(-0.5, C - 0.5)
     ax.set_ylim(R - 0.5, -0.5)  # invert so row 0 is at the top
-    ax.set_xticks([0, 1])
-    ax.set_xticklabels(["Seat", "Hallway"], rotation=45)
+    ax.set_xticks(np.arange(C))
+    # If you know which column index is hallway, you can customize labels here.
+    ax.set_xticklabels([str(i) for i in range(C)], rotation=45)
     ax.set_ylabel("Row")
     ax.set_title("Passenger positions over time")
     ax.set_aspect("equal")
@@ -69,7 +67,7 @@ def animate_passengers_scatter(passenger_hist, save=True, step=1):
         grid = passenger_hist[:, :, t]       # shape (R, C)
 
         # Positions where there is a passenger
-        rows, cols = np.where(grid == 1)     # rows: 0..R-1, cols: 0 or 1
+        rows, cols = np.where(grid == 1)     # rows: 0..R-1, cols: 0..C-1
 
         if rows.size == 0:
             scat.set_offsets(np.empty((0, 2)))
@@ -85,7 +83,7 @@ def animate_passengers_scatter(passenger_hist, save=True, step=1):
         update,
         init_func=init,
         frames=frame_indices,
-        interval=50,   # ms between frames
+        interval=interval_ms,   # ms between frames
         blit=True
     )
 

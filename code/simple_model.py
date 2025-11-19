@@ -2,18 +2,25 @@ import numpy as np
 
 class SimplestPassengerModel():
     
-    def __init__(self, rows, time_steps):
+    def __init__(self, rows, seated_cols_on_each_side, time_steps):
         self.rows = rows
         self.time_steps = time_steps
+        self.cols = 2 * seated_cols_on_each_side + 1  # 2 sets of seats plus the hallway in the middle
+        self.left_seat_cols = np.arange(seated_cols_on_each_side)
+        self.right_seat_cols = np.arange(seated_cols_on_each_side + 1, 2 * seated_cols_on_each_side + 1)
+        self.hallway_col = seat_cols_each_side
         
         
     def _initialize_passengers(self):
         # All passengers start seated
-        self.passengers = np.zeros((self.rows, 2))
-        self.passengers[:, 0] = 1
+        self.passengers = np.zeros((self.rows, self.cols))
+        self.passengers[:, self.left_seat_cols] = 1
+        self.passengers[:, self.right_seat_cols] = 1
+        
 
     def _initialize_history_arrays(self):
-        self.passengers_history = np.zeros((self.rows, 2, self.time_steps))  # Has to be 0s as may stop before all time steps have been taken.
+        self.passengers_history = np.zeros((self.rows, self.cols, self.time_steps))  # Has to be 0s as may stop before all time steps have been taken.
+
 
     def _store_hist_values(self, time_index):
         self.passengers_history[:, :, time_index] = self.passengers * 1
@@ -22,19 +29,24 @@ class SimplestPassengerModel():
     def _update(self):
         for _ in range(2 * self.rows):  # 2 columns
             x = np.random.randint(0, self.rows)
-            y = np.random.randint(0, 2)
+            y = np.random.randint(0, self.cols)
             
+            # Check if there is a passenger at the chosen site
             if self.passengers[x, y] == 0:
                 continue
-            # Seated
-            if y == 0:
-                # If able to stand, do so. Otherwise do nothing
-                if self.passengers[x, y + 1] == 0:
-                    self.passengers[x, y] = 0
-                    self.passengers[x, y + 1] = 1
             
-            # Standing
-            else:  # y == 1
+            # Seated in left seats
+            if (y in self.left_seat_cols) and (self.passengers[x, y + 1] == 0):
+                self.passengers[x, y] = 0
+                self.passengers[x, y + 1] = 1
+            
+            # Seated in right seats
+            elif (y in self.right_seat_cols) and (self.passengers[x, y - 1] == 0):
+                self.passengers[x, y] = 0
+                self.passengers[x, y - 1] = 1
+                
+            # Standing in the hallway
+            elif y == self.hallway_col:
                 # If the chosen site is at the exit, remove the passenger
                 if x == self.rows - 1:
                     self.passengers[x, y] = 0
@@ -75,6 +87,7 @@ class SimplestPassengerModel():
         
 if __name__ == "__main__":
     rows = 30
-    time_steps = 200
-    Model = SimplestPassengerModel(rows, time_steps)
+    seat_cols_each_side = 2
+    time_steps = 400
+    Model = SimplestPassengerModel(rows, seat_cols_each_side, time_steps)
     Model.store_values()
