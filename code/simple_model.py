@@ -52,7 +52,7 @@ class SimplestPassengerModel():
         # Continue until there are not more passengers or the max steps have been taken
         N_remaining_passengers = np.sum(self.passengers)
         time_steps_taken = 0
-        while (time_steps_taken < self.time_steps - 1) and N_remaining_passengers > 0:
+        while (time_steps_taken < self.time_steps - 1) and (N_remaining_passengers > 0):
             # Perform passenger update
             self._update()
             # Update loop metrics
@@ -60,6 +60,10 @@ class SimplestPassengerModel():
             N_remaining_passengers = np.sum(self.passengers)
             # Store values
             self._store_hist_values(time_steps_taken)
+
+        # If no remaining passengers, remove the remaining parts of passengers_history
+        if N_remaining_passengers == 0:
+            self.passengers_history = self.passengers_history[:, :, :time_steps_taken+1]
         
 
     def store_values(self):
@@ -71,6 +75,6 @@ class SimplestPassengerModel():
         
 if __name__ == "__main__":
     rows = 30
-    time_steps = 10
+    time_steps = 200
     Model = SimplestPassengerModel(rows, time_steps)
     Model.store_values()

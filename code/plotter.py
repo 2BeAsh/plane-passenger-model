@@ -34,66 +34,51 @@ def animate_passengers_scatter(passenger_hist, save=True, step=1):
 
     step: use every `step`-th frame to speed up saving (e.g. step=2 or 5)
     """
-    T, R, C = passenger_hist.shape
-    assert C == 2, "Expected 2 columns: [seat, hallway]"
+    R, C, T = passenger_hist.shape
+    assert C == 2, "Expected 2 columns: seat and hallway"
 
-    # Optionally subsample frames for speed
+    # Use every `step`th time point for speed, frames are actual time indices
     frame_indices = np.arange(0, T, step)
 
     fig, ax = plt.subplots(figsize=(5, 8))
 
-    # --- Background: all possible positions (seat + hallway) ---
-    # x = 0 for seat, x = 1 for hallway
+    # --- Background: all possible positions (static) ---
+    # x = 0 (seat), x = 1 (hallway) for each row
     xs_all = np.array([0, 1] * R)
     ys_all = np.repeat(np.arange(R), 2)
+    ax.scatter(xs_all, ys_all, s=12, alpha=0.2, marker="s")
 
-    ax.scatter(xs_all, ys_all, s=10, alpha=0.2, marker="s")
-
-    # --- Foreground: passengers ---
-    # Two scatters: one for seat passengers, one for hallway passengers
-    scat_seat = ax.scatter([], [], s=40, marker="o", label="Seat")
-    scat_aisle = ax.scatter([], [], s=40, marker="x", label="Hallway")
+    # --- Foreground: all passengers (single marker style) ---
+    scat = ax.scatter([], [], s=40, color="black")
 
     # Axes formatting
-    ax.set_xlim(-0.5, 1.5)          # two columns: 0 (seat), 1 (aisle)
-    ax.set_ylim(R - 0.5, -0.5)      # invert y so row 0 is at the top
+    ax.set_xlim(-0.5, 1.5)
+    ax.set_ylim(R - 0.5, -0.5)  # invert so row 0 is at the top
     ax.set_xticks([0, 1])
-    ax.set_xticklabels(["Seat", "Hallway"])
-    ax.set_ylabel("Row index")
+    ax.set_xticklabels(["Seat", "Hallway"], rotation=45)
+    ax.set_ylabel("Row")
     ax.set_title("Passenger positions over time")
     ax.set_aspect("equal")
-    ax.legend(loc="upper right")
 
     def init():
-        scat_seat.set_offsets(np.empty((0, 2)))
-        scat_aisle.set_offsets(np.empty((0, 2)))
-        return scat_seat, scat_aisle
+        scat.set_offsets(np.empty((0, 2)))
+        return scat,
 
-    def update(frame_idx):
-        grid = passenger_hist[frame_idx]      # shape (R, 2)
+    def update(t):
+        # t is the actual time index from frame_indices
+        grid = passenger_hist[:, :, t]       # shape (R, C)
 
-        # Seat passengers
-        seat_mask = grid[:, 0] > 0
-        ys_seat = np.where(seat_mask)[0]
-        xs_seat = np.zeros_like(ys_seat)
+        # Positions where there is a passenger
+        rows, cols = np.where(grid == 1)     # rows: 0..R-1, cols: 0 or 1
 
-        # Hallway passengers
-        aisle_mask = grid[:, 1] > 0
-        ys_aisle = np.where(aisle_mask)[0]
-        xs_aisle = np.ones_like(ys_aisle)
-
-        if xs_seat.size == 0:
-            scat_seat.set_offsets(np.empty((0, 2)))
+        if rows.size == 0:
+            scat.set_offsets(np.empty((0, 2)))
         else:
-            scat_seat.set_offsets(np.column_stack([xs_seat, ys_seat]))
+            coords = np.column_stack([cols, rows])  # (x, y)
+            scat.set_offsets(coords)
 
-        if xs_aisle.size == 0:
-            scat_aisle.set_offsets(np.empty((0, 2)))
-        else:
-            scat_aisle.set_offsets(np.column_stack([xs_aisle, ys_aisle]))
-
-        ax.set_title(f"Passenger positions – t = {frame_idx}")
-        return scat_seat, scat_aisle
+        ax.set_title(f"Passenger positions, t = {t}")
+        return scat,
 
     anim = FuncAnimation(
         fig,
