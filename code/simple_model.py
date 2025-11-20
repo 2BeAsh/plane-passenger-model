@@ -1,14 +1,23 @@
 import numpy as np
+from tqdm import tqdm
 
 class SimplestPassengerModel():
     
-    def __init__(self, rows, seated_cols_on_each_side, time_steps):
+    def __init__(self, rows, seat_cols_each_side, time_steps):
+        """Baseline plane passenger exit model
+
+        Args:
+            rows (int): Number of rows in the plane.
+            self.seat_cols_each_side (int): Number of columns of seats on each side of the hallway.
+            time_steps (int): Time steps to run the simulation for.
+        """
         self.rows = rows
         self.time_steps = time_steps
-        self.cols = 2 * seated_cols_on_each_side + 1  # 2 sets of seats plus the hallway in the middle
-        self.left_seat_cols = np.arange(seated_cols_on_each_side)
-        self.right_seat_cols = np.arange(seated_cols_on_each_side + 1, 2 * seated_cols_on_each_side + 1)
-        self.hallway_col = seat_cols_each_side
+        self.seat_cols_each_side = seat_cols_each_side
+        self.cols = 2 * self.seat_cols_each_side + 1  # 2 sets of seats plus the hallway in the middle
+        self.left_seat_cols = np.arange(self.seat_cols_each_side)
+        self.right_seat_cols = np.arange(self.seat_cols_each_side + 1, 2 * self.seat_cols_each_side + 1)
+        self.hallway_col = self.seat_cols_each_side
         
         
     def _initialize_passengers(self):
@@ -26,15 +35,7 @@ class SimplestPassengerModel():
         self.passengers_history[:, :, time_index] = self.passengers * 1
 
     
-    def _update(self):
-        for _ in range(2 * self.rows):  # 2 columns
-            x = np.random.randint(0, self.rows)
-            y = np.random.randint(0, self.cols)
-            
-            # Check if there is a passenger at the chosen site
-            if self.passengers[x, y] == 0:
-                continue
-            
+    def _move_from_seat(self, x, y):
             # Seated in left seats
             if (y in self.left_seat_cols) and (self.passengers[x, y + 1] == 0):
                 self.passengers[x, y] = 0
@@ -44,16 +45,32 @@ class SimplestPassengerModel():
             elif (y in self.right_seat_cols) and (self.passengers[x, y - 1] == 0):
                 self.passengers[x, y] = 0
                 self.passengers[x, y - 1] = 1
-                
-            # Standing in the hallway
-            elif y == self.hallway_col:
-                # If the chosen site is at the exit, remove the passenger
-                if x == self.rows - 1:
+        
+    
+    def _move_in_hallway(self, x, y):
+        # Standing in the hallway
+        if y == self.hallway_col:
+            # If the chosen site is at the exit, remove the passenger
+            if x == self.rows - 1:
+                self.passengers[x, y] = 0
+            else:
+                if self.passengers[x + 1, y] == 0:
                     self.passengers[x, y] = 0
-                else:
-                    if self.passengers[x + 1, y] == 0:
-                        self.passengers[x, y] = 0
-                        self.passengers[x + 1, y] = 1
+                    self.passengers[x + 1, y] = 1
+    
+    
+    def _update(self):
+        for _ in range(2 * self.seat_cols_each_side):
+            x = np.random.randint(0, self.rows)
+            y = np.random.randint(0, self.cols)
+            
+            # Check if there is a passenger at the chosen site
+            if self.passengers[x, y] == 0:
+                continue
+            
+            self._move_from_seat(x, y)
+            self._move_in_hallway(x, y)
+            
         
     def _simulate(self):
         # Setup
@@ -63,31 +80,35 @@ class SimplestPassengerModel():
         
         # Continue until there are not more passengers or the max steps have been taken
         N_remaining_passengers = np.sum(self.passengers)
-        time_steps_taken = 0
-        while (time_steps_taken < self.time_steps - 1) and (N_remaining_passengers > 0):
+        self.time_steps_taken = 0
+        while (self.time_steps_taken < self.time_steps - 1) and (N_remaining_passengers > 0):
             # Perform passenger update
             self._update()
             # Update loop metrics
-            time_steps_taken += 1
+            self.time_steps_taken += 1
             N_remaining_passengers = np.sum(self.passengers)
             # Store values
-            self._store_hist_values(time_steps_taken)
+            self._store_hist_values(self.time_steps_taken)
 
         # If no remaining passengers, remove the remaining parts of passengers_history
         if N_remaining_passengers == 0:
-            self.passengers_history = self.passengers_history[:, :, :time_steps_taken+1]
+            self.passengers_history = self.passengers_history[:, :, :self.time_steps_taken+1]
+        else:
+            print(f"Warning, reached {self.time_steps_taken} / {self.time_steps} time steps")
         
 
-    def store_values(self):
+    def store_values(self, filename=""):
         # Simulate
         self._simulate()
-        np.savez("./data/simple_model.npz", self.passengers_history)
-        print("Saved simple model")
+        np.savez(f"./data/{filename}_model", self.passengers_history)
+        print(f"Saved {filename}")
         
-        
-if __name__ == "__main__":
-    rows = 30
-    seat_cols_each_side = 2
-    time_steps = 400
-    Model = SimplestPassengerModel(rows, seat_cols_each_side, time_steps)
-    Model.store_values()
+    
+    def store_time_taken(self, N_repeat, filename=""):
+        # Run the simulation N_repeat times
+        times = np.empty(N_repeat)
+        for i in tqdm(range(N_repeat)):
+            self._simulate()
+            times[i] = self.time_steps_taken
+        np.savez(f"./data/{filename}_times_N{N_repeat}", times)
+        print(f"Finished saving times to {filename} with N={N_repeat}")

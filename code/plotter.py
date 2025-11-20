@@ -23,7 +23,7 @@ def animate_passengers(passenger_hist):
     anim.save(save_path + "passenger_hist.mp4")
     
 
-def animate_passengers_scatter(passenger_hist, save=True, step=1, interval_ms=100):
+def animate_passengers_scatter(passenger_hist, save=True, step=1, interval_ms=100, fname_add=""):
     """
     passenger_hist: array of shape (R, C, T)
         R = rows
@@ -90,4 +90,14 @@ def animate_passengers_scatter(passenger_hist, save=True, step=1, interval_ms=10
     plt.show()
 
     if save:
-        anim.save(save_path + "passenger_hist_scatter.mp4", fps=1000/50)
+        anim.save(save_path + fname_add + "passenger_hist_scatter.mp4", fps=1000/50)
+        
+        
+def time_distribution(times, Nbins=None):
+    if Nbins is None:
+        Nbins = int(np.sqrt(times.size))
+    fig, ax = plt.subplots(dpi=150)
+    ax.hist(times, bins=Nbins)
+    ax.set(xlabel="Time steps to empty plane", ylabel="Counts")
+    ax.grid()
+    plt.show()
